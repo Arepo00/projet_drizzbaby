@@ -1,0 +1,86 @@
+10) MobileSec-MS — Mobile Application Security Analysis
+Context
+
+Mobile applications are often released with serious vulnerabilities such as exposed API keys, poor local storage management, lack of encryption, or missing client-side validation. Manual security testing is time-consuming and costly, and existing tools are not always suited for continuous DevSecOps pipelines.
+A modular platform could automatically detect these issues through static or dynamic analysis.
+
+Objective
+
+Develop a modular platform composed of specialized microservices that enable:
+
+Automated analysis of mobile application packages (APK/IPA),
+
+Detection of OWASP MAS (Mobile Application Security) vulnerabilities,
+
+Extraction of missing best practices (SSL security, permissions, export configurations, storage),
+
+Suggestion of corrective actions,
+
+Continuous integration within DevSecOps workflows.
+
+Detailed Microservice Architecture
+1. APKScanner
+
+Role: Disassembles and analyzes APKs to extract the manifest, permissions, and endpoints.
+
+Technologies: Python (Androguard, Apktool), SQLite database for metadata.
+
+Function: Identifies exported components, dangerous permissions, debuggable flags, allowBackup, cleartextTrafficPermitted, etc.
+
+2. SecretHunter
+
+Role: Searches for exposed secrets within the source code or resources.
+
+Technologies: GitLeaks, custom Regex, YARA Rules.
+
+Function: Detects API keys, OAuth tokens, hardcoded passwords, and other sensitive data.
+
+3. CryptoCheck
+
+Role: Verifies the correct use of cryptographic APIs.
+
+Technologies: SAST for Java/Kotlin, rule-based detection (CWE).
+
+Function: Detects insecure practices such as AES/ECB usage, missing padding, weak random generation, or MD5/SHA1 hashing.
+
+4. NetworkInspector
+
+Role: Intercepts and analyzes network communications through a MITM proxy.
+
+Technologies: mitmproxy, Docker sandbox with Android AVD.
+
+Function: Examines HTTPS/TLS configurations, HTTP headers, certificate handling, and potential data leaks.
+
+5. ReportGen
+
+Role: Aggregates all scan results and generates detailed reports (PDF, JSON, SARIF).
+
+Technologies: Node.js, Puppeteer.
+
+Function: Produces a complete summary of detected vulnerabilities and corresponding remediation recommendations.
+
+6. FixSuggest
+
+Role: Provides suggested patches or configurations to apply.
+
+Technologies: MASVS rule model → YAML → patch generator.
+
+Function: Suggests concrete actions such as android:exported="false", enabling Proguard, or isolating signingConfig.
+
+7. CIConnector
+
+Role: Ensures integration with GitHub Actions or GitLab CI/CD.
+
+Technologies: Docker CLI, YAML plugins.
+
+Function: Triggers automated scans at each build or deployment step.
+
+Expected Results
+
+Fast and automated detection of mobile security vulnerabilities.
+
+Compliance support with OWASP MASVS, CWE, and CIS Mobile standards.
+
+Smooth integration into Android/iOS DevSecOps cycles.
+
+Extensible open-source platform, including sample datasets and reproducible reports for publication in SoftwareX.
