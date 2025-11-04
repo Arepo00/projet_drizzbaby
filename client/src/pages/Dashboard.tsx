@@ -1,49 +1,57 @@
-import { useState } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Plus, Shield } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import DashboardStats from "@/components/DashboardStats";
 import ScanResultsTable from "@/components/ScanResultsTable";
 import ThemeToggle from "@/components/ThemeToggle";
+import type { Scan, Finding } from "@shared/schema";
+
+interface ScanWithFindings extends Scan {
+  findings?: Finding[];
+}
+
+function formatTimeAgo(date: Date): string {
+  const now = new Date();
+  const diff = now.getTime() - new Date(date).getTime();
+  const minutes = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
+
+  if (minutes < 1) return "Just now";
+  if (minutes < 60) return `${minutes} min ago`;
+  if (hours < 24) return `${hours} hour${hours > 1 ? "s" : ""} ago`;
+  return `${days} day${days > 1 ? "s" : ""} ago`;
+}
 
 export default function Dashboard() {
-  const [, setLocation] = useState<string>("");
+  const { data: scans = [], isLoading } = useQuery<Scan[]>({
+    queryKey: ["/api/scans"],
+  });
 
-  // todo: remove mock functionality
-  const mockResults = [
-    {
-      id: '1',
-      appName: 'MyBankingApp',
-      packageName: 'com.example.banking',
-      scanDate: '2 hours ago',
-      status: 'complete' as const,
-      vulnerabilities: { critical: 2, high: 5, medium: 8, low: 12 },
+  // Calculate stats from real data
+  const totalScans = scans.length;
+  const completedScans = scans.filter((s) => s.status === "complete");
+  const successRate = totalScans > 0
+    ? `${Math.round((completedScans.length / totalScans) * 100)}%`
+    : "N/A";
+  
+  const lastScan = scans.length > 0 ? formatTimeAgo(scans[0].scanDate) : "N/A";
+
+  // Format scans for table
+  const tableResults = scans.map((scan) => ({
+    id: scan.id,
+    appName: scan.appName,
+    packageName: scan.packageName,
+    scanDate: formatTimeAgo(scan.scanDate),
+    status: scan.status as "pending" | "running" | "complete" | "failed",
+    vulnerabilities: {
+      critical: 0,
+      high: 0,
+      medium: 0,
+      low: 0,
     },
-    {
-      id: '2',
-      appName: 'ShoppingCart Pro',
-      packageName: 'com.shop.cart',
-      scanDate: '5 hours ago',
-      status: 'complete' as const,
-      vulnerabilities: { critical: 0, high: 3, medium: 4, low: 7 },
-    },
-    {
-      id: '3',
-      appName: 'SocialConnect',
-      packageName: 'com.social.connect',
-      scanDate: 'Yesterday',
-      status: 'complete' as const,
-      vulnerabilities: { critical: 1, high: 2, medium: 6, low: 9 },
-    },
-    {
-      id: '4',
-      appName: 'FitnessTracker',
-      packageName: 'com.fitness.tracker',
-      scanDate: '2 days ago',
-      status: 'failed' as const,
-      vulnerabilities: { critical: 0, high: 0, medium: 0, low: 0 },
-    },
-  ];
+  }));
 
   return (
     <div className="min-h-screen bg-background">
@@ -80,21 +88,28 @@ export default function Dashboard() {
           </p>
         </div>
 
-        <DashboardStats
-          totalScans={127}
-          criticalIssues={8}
-          lastScanDate="2 hours ago"
-          successRate="94%"
-        />
+        {isLoading ? (
+          <div className="text-center py-8 text-muted-foreground">
+            Loading scans...
+          </div>
+        ) : (
+          <>
+            <DashboardStats
+              totalScans={totalScans}
+              criticalIssues={0}
+              lastScanDate={lastScan}
+              successRate={successRate}
+            />
 
-        <ScanResultsTable
-          results={mockResults}
-          onViewReport={(id) => {
-            console.log('View report:', id);
-            window.location.href = `/report/${id}`;
-          }}
-          onDownloadReport={(id) => console.log('Download report:', id)}
-        />
+            <ScanResultsTable
+              results={tableResults}
+              onViewReport={(id) => {
+                window.location.href = `/report/${id}`;
+              }}
+              onDownloadReport={(id) => console.log("Download report:", id)}
+            />
+          </>
+        )}
       </main>
     </div>
   );

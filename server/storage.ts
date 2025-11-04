@@ -1,37 +1,100 @@
-import { type User, type InsertUser } from "@shared/schema";
+import {
+  type Scan,
+  type InsertScan,
+  type Finding,
+  type InsertFinding,
+  type ScanStatus,
+} from "@shared/schema";
 import { randomUUID } from "crypto";
 
-// modify the interface with any CRUD methods
-// you might need
-
 export interface IStorage {
-  getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
+  // Scan methods
+  createScan(scan: InsertScan): Promise<Scan>;
+  getScan(id: string): Promise<Scan | undefined>;
+  getAllScans(): Promise<Scan[]>;
+  updateScanStatus(
+    id: string,
+    status: ScanStatus,
+    duration?: string,
+    overallScore?: string
+  ): Promise<Scan | undefined>;
+
+  // Finding methods
+  createFinding(finding: InsertFinding): Promise<Finding>;
+  getFindingsByScanId(scanId: string): Promise<Finding[]>;
 }
 
 export class MemStorage implements IStorage {
-  private users: Map<string, User>;
+  private scans: Map<string, Scan>;
+  private findings: Map<string, Finding>;
 
   constructor() {
-    this.users = new Map();
+    this.scans = new Map();
+    this.findings = new Map();
   }
 
-  async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
+  // Scan methods
+  async createScan(insertScan: InsertScan): Promise<Scan> {
+    const id = randomUUID();
+    const scan: Scan = {
+      ...insertScan,
+      id,
+      scanDate: new Date(),
+      duration: null,
+      overallScore: null,
+    };
+    this.scans.set(id, scan);
+    return scan;
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
+  async getScan(id: string): Promise<Scan | undefined> {
+    return this.scans.get(id);
+  }
+
+  async getAllScans(): Promise<Scan[]> {
+    return Array.from(this.scans.values()).sort(
+      (a, b) => b.scanDate.getTime() - a.scanDate.getTime()
     );
   }
 
-  async createUser(insertUser: InsertUser): Promise<User> {
+  async updateScanStatus(
+    id: string,
+    status: ScanStatus,
+    duration?: string,
+    overallScore?: string
+  ): Promise<Scan | undefined> {
+    const scan = this.scans.get(id);
+    if (!scan) return undefined;
+
+    const updatedScan: Scan = {
+      ...scan,
+      status,
+      duration: duration || scan.duration,
+      overallScore: overallScore || scan.overallScore,
+    };
+    this.scans.set(id, updatedScan);
+    return updatedScan;
+  }
+
+  // Finding methods
+  async createFinding(insertFinding: InsertFinding): Promise<Finding> {
     const id = randomUUID();
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
-    return user;
+    const finding: Finding = {
+      ...insertFinding,
+      id,
+      cwe: insertFinding.cwe || null,
+      affectedFiles: insertFinding.affectedFiles || null,
+      fixSuggestion: insertFinding.fixSuggestion || null,
+      codeSnippet: insertFinding.codeSnippet || null,
+    };
+    this.findings.set(id, finding);
+    return finding;
+  }
+
+  async getFindingsByScanId(scanId: string): Promise<Finding[]> {
+    return Array.from(this.findings.values()).filter(
+      (finding) => finding.scanId === scanId
+    );
   }
 }
 

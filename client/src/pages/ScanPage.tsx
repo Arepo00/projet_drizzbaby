@@ -1,41 +1,115 @@
-import { useState } from "react";
-import { Link } from "wouter";
+import { useState, useEffect } from "react";
+import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Shield, PlayCircle } from "lucide-react";
 import ScanUpload from "@/components/ScanUpload";
 import ScanProgress from "@/components/ScanProgress";
 import ThemeToggle from "@/components/ThemeToggle";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import type { Scan } from "@shared/schema";
 
 export default function ScanPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [isScanning, setIsScanning] = useState(false);
-  const [scanProgress, setScanProgress] = useState(0);
+  const [scanId, setScanId] = useState<string | null>(null);
+  const [, setLocation] = useLocation();
+  const { toast } = useToast();
 
-  // todo: remove mock functionality
-  const mockSteps = [
-    { id: 'apk-scanner', name: 'APKScanner', status: isScanning ? ('complete' as const) : ('pending' as const) },
-    { id: 'secret-hunter', name: 'SecretHunter', status: isScanning ? ('running' as const) : ('pending' as const) },
-    { id: 'crypto-check', name: 'CryptoCheck', status: 'pending' as const },
-    { id: 'network-inspector', name: 'NetworkInspector', status: 'pending' as const },
-    { id: 'report-gen', name: 'ReportGen', status: 'pending' as const },
+  const uploadMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append("apk", file);
+      
+      const res = await fetch("/api/scans/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const error = await res.text();
+        throw new Error(error || "Upload failed");
+      }
+
+      return await res.json();
+    },
+    onSuccess: (data: { scanId: string }) => {
+      setScanId(data.scanId);
+      startScanMutation.mutate(data.scanId);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Upload Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const startScanMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("POST", `/api/scans/${id}/start`);
+      return await res.json();
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to Start Scan",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const { data: scanData } = useQuery<Scan>({
+    queryKey: ["/api/scans", scanId],
+    queryFn: async () => {
+      const res = await fetch(`/api/scans/${scanId}`);
+      if (!res.ok) throw new Error("Failed to fetch scan");
+      return res.json();
+    },
+    enabled: !!scanId,
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      if (!data) return false;
+      return data.status === "running" ? 2000 : false;
+    },
+  });
+
+  useEffect(() => {
+    if (scanData?.status === "complete") {
+      setLocation(`/report/${scanId}`);
+    }
+  }, [scanData?.status, scanId, setLocation]);
+
+  const isScanning = scanId !== null;
+  const isUploading = uploadMutation.isPending;
+  const scanStatus = scanData?.status || "pending";
+
+  const microservices = [
+    { id: "apk-scanner", name: "APKScanner" },
+    { id: "secret-hunter", name: "SecretHunter" },
+    { id: "crypto-check", name: "CryptoCheck" },
   ];
 
+  const steps = microservices.map((ms, index) => {
+    let status: "pending" | "running" | "complete" = "pending";
+    
+    if (scanStatus === "complete") {
+      status = "complete";
+    } else if (scanStatus === "running") {
+      if (index === 0) status = "complete";
+      else if (index === 1) status = "running";
+    }
+
+    return { ...ms, status };
+  });
+
+  const scanProgress = scanStatus === "complete" ? 100 : scanStatus === "running" ? 50 : 0;
+
   const handleStartScan = () => {
-    console.log('Starting scan for file:', selectedFile?.name);
-    setIsScanning(true);
-    // todo: remove mock functionality - simulate progress
-    let progress = 0;
-    const interval = setInterval(() => {
-      progress += 10;
-      setScanProgress(progress);
-      if (progress >= 100) {
-        clearInterval(interval);
-        setTimeout(() => {
-          window.location.href = '/report/1';
-        }, 1000);
-      }
-    }, 500);
+    if (!selectedFile) return;
+    uploadMutation.mutate(selectedFile);
   };
 
   return (
@@ -98,10 +172,6 @@ export default function ScanPage() {
                         <div className="h-2 w-2 rounded-full bg-primary" />
                         <span>CryptoCheck</span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <div className="h-2 w-2 rounded-full bg-primary" />
-                        <span>NetworkInspector</span>
-                      </div>
                     </div>
                   </div>
 
@@ -109,17 +179,18 @@ export default function ScanPage() {
                     onClick={handleStartScan}
                     className="w-full"
                     size="lg"
+                    disabled={isUploading}
                     data-testid="button-start-scan"
                   >
                     <PlayCircle className="h-5 w-5 mr-2" />
-                    Start Security Analysis
+                    {isUploading ? "Uploading..." : "Start Security Analysis"}
                   </Button>
                 </CardContent>
               </Card>
             )}
           </div>
         ) : (
-          <ScanProgress steps={mockSteps} progress={scanProgress} />
+          <ScanProgress steps={steps} progress={scanProgress} />
         )}
       </main>
     </div>
