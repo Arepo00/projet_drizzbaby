@@ -9,7 +9,7 @@ interface ScanResult {
   appName: string;
   packageName: string;
   scanDate: string;
-  status: "complete" | "running" | "failed";
+  status: "complete" | "running" | "failed" | "pending";
   vulnerabilities: {
     critical: number;
     high: number;
@@ -28,6 +28,7 @@ const statusConfig = {
   complete: { label: "Complete", className: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100" },
   running: { label: "Running", className: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100" },
   failed: { label: "Failed", className: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100" },
+  pending: { label: "Pending", className: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100" },
 };
 
 export default function ScanResultsTable({
