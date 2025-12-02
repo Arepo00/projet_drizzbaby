@@ -3,7 +3,6 @@ import { execFile } from "child_process";
 import path from "path";
 import { fileURLToPath } from "url";
 import type { InsertFinding } from "@shared/schema";
-import type { MicroserviceDefinition } from "@shared/microservices";
 
 const execFileAsync = promisify(execFile);
 
@@ -15,26 +14,18 @@ export interface PythonMicroserviceResult {
 }
 
 export async function runPythonMicroservice(
-  microservice: MicroserviceDefinition,
+  scriptName: string,
   apkPath: string,
 ): Promise<PythonMicroserviceResult> {
-  const scriptPath = path.join(pythonDir, microservice.script);
+  const scriptPath = path.join(pythonDir, scriptName);
 
   try {
     const { stdout } = await execFileAsync("python3", [scriptPath, apkPath], {
       maxBuffer: 10 * 1024 * 1024,
     });
-    const parsed = JSON.parse(stdout) as PythonMicroserviceResult;
-    const findings = Array.isArray(parsed.findings)
-      ? parsed.findings.map((finding) => ({
-          ...finding,
-          microservice: finding.microservice ?? microservice.id,
-        }))
-      : [];
-
-    return { findings };
+    return JSON.parse(stdout) as PythonMicroserviceResult;
   } catch (error) {
-    console.error(`Python microservice ${microservice.id} failed:`, error);
+    console.error(`Python microservice ${scriptName} failed:`, error);
     return { findings: [] };
   }
 }

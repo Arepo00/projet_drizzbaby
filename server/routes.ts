@@ -158,7 +158,7 @@ async function processScan(scanId: string, filePath: string) {
   try {
     // Run all microservices
     const results = await Promise.all(
-      microservices.map((ms) => runPythonMicroservice(ms, filePath)),
+      microservices.map((ms) => runPythonMicroservice(ms.script, filePath)),
     );
 
     // Save all findings
