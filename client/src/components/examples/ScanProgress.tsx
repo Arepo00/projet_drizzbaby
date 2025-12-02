@@ -1,13 +1,12 @@
-import ScanProgress from '../ScanProgress';
+import { microservices } from "@shared/microservices";
+import ScanProgress from "../ScanProgress";
 
 export default function ScanProgressExample() {
-  const steps = [
-    { id: 'apk-scanner', name: 'APKScanner', status: 'complete' as const },
-    { id: 'secret-hunter', name: 'SecretHunter', status: 'complete' as const },
-    { id: 'crypto-check', name: 'CryptoCheck', status: 'running' as const },
-    { id: 'network-inspector', name: 'NetworkInspector', status: 'pending' as const },
-    { id: 'report-gen', name: 'ReportGen', status: 'pending' as const },
-  ];
+  const steps = microservices.map((ms, index) => ({
+    id: ms.id,
+    name: ms.name,
+    status: index < 2 ? ("complete" as const) : index === 2 ? ("running" as const) : ("pending" as const),
+  }));
 
   return (
     <ScanProgress

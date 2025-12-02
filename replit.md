@@ -48,22 +48,34 @@ Preferred communication style: Simple, everyday language.
 
 **File Upload**: Multer middleware with 100MB limit, APK-only filter, uploads stored in `uploads/` directory
 
-**Microservices Architecture**: Modular analysis engines implemented as separate modules:
+**Microservices Architecture**: Modular Python analysis engines orchestrated from Node using a lightweight runner (`server/microservices/python-runner.ts`). Scripts live in `server/python_microservices/` and include:
 
-1. **APKScanner** (`server/microservices/apk-scanner.ts`)
-   - Extracts and analyzes AndroidManifest.xml from APK files using adm-zip
+1. **APKScanner** (`apk_scanner.py`)
+   - Extracts and analyzes AndroidManifest.xml from APK files using zip inspection
    - Detects: debuggable flags, backup settings, cleartext traffic permissions, exported components
    - Maps findings to CWE classifications
 
-2. **SecretHunter** (`server/microservices/secret-hunter.ts`)
+2. **SecretHunter** (`secret_hunter.py`)
    - Scans APK contents for exposed secrets using regex patterns
    - Detects: AWS keys, API keys, private keys, OAuth tokens, database passwords, JWT tokens
    - Pattern-based detection for common credential formats
 
-3. **CryptoCheck** (`server/microservices/crypto-check.ts`)
+3. **CryptoCheck** (`crypto_check.py`)
    - Analyzes source code for insecure cryptographic practices
    - Detects: AES/ECB mode, MD5/SHA1 hashing, weak random number generation, hardcoded encryption keys
    - Provides secure alternatives in fix suggestions
+
+4. **NetworkInspector** (`network_inspector.py`)
+   - Flags cleartext endpoints and permissive TLS validation artifacts in client-side code
+
+5. **ReportGen** (`report_gen.py`)
+   - Adds high-level metadata and signing checks for generated reports
+
+6. **FixSuggest** (`fix_suggest.py`)
+   - Emits remediation guidance aligned with MASVS practices
+
+7. **CIConnector** (`ci_connector.py`)
+   - Shares guidance for integrating the scanner into CI/CD workflows
 
 **Data Flow**:
 1. User uploads APK via frontend

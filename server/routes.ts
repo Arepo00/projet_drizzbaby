@@ -5,9 +5,8 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import { insertScanSchema, insertFindingSchema } from "@shared/schema";
-import { scanAPK } from "./microservices/apk-scanner";
-import { scanSecrets } from "./microservices/secret-hunter";
-import { scanCrypto } from "./microservices/crypto-check";
+import { runPythonMicroservice } from "./microservices/python-runner";
+import { microservices } from "@shared/microservices";
 
 // Setup multer for file uploads
 const upload = multer({
@@ -132,16 +131,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const findings = await storage.getFindingsByScanId(scan.id);
 
       // Group findings by microservice
-      const microservices = [
-        { id: "apk-scanner", name: "APKScanner" },
-        { id: "secret-hunter", name: "SecretHunter" },
-        { id: "crypto-check", name: "CryptoCheck" },
-      ];
-
       const report = {
         ...scan,
         microservices: microservices.map((ms) => ({
-          ...ms,
+          id: ms.id,
+          name: ms.name,
           findings: findings.filter((f) => f.microservice === ms.id),
         })),
       };
@@ -163,18 +157,12 @@ async function processScan(scanId: string, filePath: string) {
 
   try {
     // Run all microservices
-    const [apkResults, secretResults, cryptoResults] = await Promise.all([
-      scanAPK(filePath),
-      scanSecrets(filePath),
-      scanCrypto(filePath),
-    ]);
+    const results = await Promise.all(
+      microservices.map((ms) => runPythonMicroservice(ms, filePath)),
+    );
 
     // Save all findings
-    const allFindings = [
-      ...apkResults.findings,
-      ...secretResults.findings,
-      ...cryptoResults.findings,
-    ];
+    const allFindings = results.flatMap((result) => result.findings);
 
     for (const finding of allFindings) {
       const validatedFinding = insertFindingSchema.parse({

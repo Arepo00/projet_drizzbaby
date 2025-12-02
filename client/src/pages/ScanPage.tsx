@@ -10,6 +10,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Scan } from "@shared/schema";
+import { microservices } from "@shared/microservices";
 
 export default function ScanPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -86,26 +87,21 @@ export default function ScanPage() {
   const isUploading = uploadMutation.isPending;
   const scanStatus = scanData?.status || "pending";
 
-  const microservices = [
-    { id: "apk-scanner", name: "APKScanner" },
-    { id: "secret-hunter", name: "SecretHunter" },
-    { id: "crypto-check", name: "CryptoCheck" },
-  ];
-
   const steps = microservices.map((ms, index) => {
     let status: "pending" | "running" | "complete" = "pending";
-    
+
     if (scanStatus === "complete") {
       status = "complete";
     } else if (scanStatus === "running") {
-      if (index === 0) status = "complete";
-      else if (index === 1) status = "running";
+      if (index === 0) status = "running";
     }
 
-    return { ...ms, status };
+    return { id: ms.id, name: ms.name, status };
   });
 
-  const scanProgress = scanStatus === "complete" ? 100 : scanStatus === "running" ? 50 : 0;
+  const runningProgress = Math.round((1 / microservices.length) * 100);
+  const scanProgress =
+    scanStatus === "complete" ? 100 : scanStatus === "running" ? runningProgress : 0;
 
   const handleStartScan = () => {
     if (!selectedFile) return;
@@ -160,18 +156,12 @@ export default function ScanPage() {
                   <div className="space-y-2">
                     <h4 className="text-sm font-medium">Enabled Microservices</h4>
                     <div className="grid grid-cols-2 gap-2 text-sm">
-                      <div className="flex items-center gap-2">
-                        <div className="h-2 w-2 rounded-full bg-primary" />
-                        <span>APKScanner</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="h-2 w-2 rounded-full bg-primary" />
-                        <span>SecretHunter</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="h-2 w-2 rounded-full bg-primary" />
-                        <span>CryptoCheck</span>
-                      </div>
+                      {microservices.map((ms) => (
+                        <div key={ms.id} className="flex items-center gap-2">
+                          <div className="h-2 w-2 rounded-full bg-primary" />
+                          <span>{ms.name}</span>
+                        </div>
+                      ))}
                     </div>
                   </div>
 
